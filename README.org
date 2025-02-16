@@ -1,0 +1,30 @@
+#+title: Sabbishot (Sabbipode Screenshot)
+#+author: Nicola Ferru
+#+email: ask dot nfvblog at outlook dot it
+
+Sabbishot is a cross-platform screenshot tool written in Rust. It allows users to quickly capture screenshots on various platforms, such as Linux, macOS, and Windows.
+
+** Features                                                         :features:
+ * [X] Capture full-screen screenshots,
+ * [ ] specific windows, or custom selections.
+ * [X] Cross-platform support: Linux, macOS, and Windows.
+ * [X] MIT License.
+
+** Installation                                                         :inst:
+To install Sabbishot, clone this repository and build the program using Cargo, the Rust package manager:
+#+begin_src shell
+  git clone https://github.com/your_username/Sabbishot.git
+  cd Sabbishot
+  cargo build --release
+#+end_src
+
+** Usage                                                               :usage:
+To run Sabbishot from the terminal, use the command:
+#+begin_src shell
+  ./target/release/sabbishot
+#+end_src
+After running, the program will allow you to capture a screenshot by pressing a specific key (_configurable in the future_).
+
+** License                                                           :license:
+This project is licensed under the MIT License. See the [[https://github.com/NF02/Sabbishot/blob/main/LICENSE][LICENSE]] file for details.
+

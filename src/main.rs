@@ -2,20 +2,23 @@ use eframe::egui;
 use screenshots::Screen;
 use image::{ImageBuffer, Rgba};
 use notify_rust::Notification;
+use rfd::FileDialog;
 use std::process;
 
-// Struttura dell'applicazione
+// Application structure
 #[derive(Default)]
 struct App {
     main_menu: Menu,
     screens: Vec<Screen>,
     selected_screen: Option<usize>,
+    save_path: String,
 }
 
-// Enum per la gestione dei menu
+// Enum for menu management
 #[derive(PartialEq)]
 enum Menu {
     Main,
+    FullScreen,
     ScreenSelector,
     Info,
     License,
@@ -35,67 +38,90 @@ impl App {
         App {
             main_menu: Menu::Main,
             screens,
+            save_path: String::new(),
             selected_screen: None,
         }
     }
 
     fn show_main_menu(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Menu Principale");
+        ui.heading("Main Menu");
 
-        if ui.button("Seleziona Schermo").clicked() {
+        if ui.button("Full Screen").clicked(){
+            self.main_menu = Menu::FullScreen;
+        }
+        if ui.button("Select Screen").clicked() {
             self.main_menu = Menu::ScreenSelector;
         }
-        if ui.button("Informazioni").clicked() {
+        if ui.button("Information").clicked() {
             self.main_menu = Menu::Info;
         }
-        if ui.button("Esci").clicked() {
+        if ui.button("Exit").clicked() {
             self.main_menu = Menu::Exit;
         }
     }
 
+    fn show_full_screen(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Full Screen");
+        if let Some(screen) = self.screens.first() {
+            self.take_screenshot(screen);
+        } else {
+            Notification::new()
+                .summary("Screenshot Error")
+                .body("No available screen for capture!")
+                .show()
+                .unwrap();
+        }
+        self.main_menu = Menu::Main;
+    }
+    
     fn show_screen_selector(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Seleziona uno schermo");
+        ui.heading("Select Screen");
 
         if self.screens.is_empty() {
-            ui.label("Nessuno schermo trovato.");
+            ui.label("Screen not found...");
         } else {
-	    ui.horizontal(|ui| {
-		for (i, screen) in self.screens.iter().enumerate() {
+            ui.horizontal(|ui| {
+                for (i, screen) in self.screens.iter().enumerate() {
                     let label = format!(
-			"Schermo {} - {}x{}",
-			screen.display_info.id,
-			screen.display_info.width,
-			screen.display_info.height
+                        "Screen {} - {}x{}",
+                        screen.display_info.id,
+                        screen.display_info.width,
+                        screen.display_info.height
                     );
                     if ui.button(label).clicked() {
-			self.selected_screen = Some(i);
+                        self.selected_screen = Some(i);
                     }
-		}
-	    });
+                }
+            });
         }
 
         if let Some(index) = self.selected_screen {
             let selected_screen = &self.screens[index];
             ui.label(format!(
-                "Schermo selezionato: {} - {}x{}",
+                "Selected screen: {} - {}x{}",
                 selected_screen.display_info.id,
                 selected_screen.display_info.width,
                 selected_screen.display_info.height
             ));
 
-            if ui.button("Cattura Screenshot").clicked() {
+            if ui.button("Capture Screenshot").clicked() {
                 self.take_screenshot(&self.screens[index]);
             }
         }
 
-        if ui.button("Indietro").clicked() {
+        if ui.button("Back").clicked() {
             self.main_menu = Menu::Main;
         }
     }
 
     fn take_screenshot(&self, screen: &Screen) {
         if let Ok(image) = screen.capture() {
-            let filename = format!("screenshot-{}.png", screen.display_info.id);
+            let default_filename = format!("screenshot-{}.png", screen.display_info.id);
+            let filename = if self.save_path.is_empty() {
+                default_filename
+            } else {
+                self.save_path.clone()
+            };
 
             let img_buffer = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(
                 image.width(),
@@ -106,21 +132,21 @@ impl App {
             if let Some(buffer) = img_buffer {
                 if let Err(e) = buffer.save(&filename) {
                     Notification::new()
-                        .summary("Errore Screenshot")
-                        .body(&format!("Impossibile salvare lo screenshot: {}", e))
+                        .summary("Screenshot Error")
+                        .body(&format!("Unable to save screenshot: {}", e))
                         .show()
                         .unwrap();
                 } else {
                     Notification::new()
-                        .summary("Screenshot salvato!")
-                        .body(&format!("File salvato come {}", filename))
+                        .summary("Screenshot Saved!")
+                        .body(&format!("File saved as {}", filename))
                         .show()
                         .unwrap();
                 }
             } else {
                 Notification::new()
-                    .summary("Errore Screenshot")
-                    .body("Errore durante la creazione dell'ImageBuffer!")
+                    .summary("Screenshot Error")
+                    .body("Error during ImageBuffer creation!")
                     .show()
                     .unwrap();
             }
@@ -128,51 +154,52 @@ impl App {
     }
 
     fn show_info(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Informazioni");
-        ui.label("Questa applicazione permette di catturare screenshot su Wayland.");
+        ui.heading("Information");
+        ui.label("This application allows you to capture screenshots on Wayland.");
 
-	if ui.button("Licenza").clicked() {
+        if ui.button("License").clicked() {
             self.main_menu = Menu::License;
         }
-	if ui.button("Contributori").clicked() {
+        if ui.button("Contributors").clicked() {
             self.main_menu = Menu::Contrib;
         }
-	
-	if ui.button("Indietro").clicked() {
+        
+        if ui.button("Back").clicked() {
             self.main_menu = Menu::Main;
         }
     }
 
     fn show_license(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Licenza");
-        ui.label("Software rilasciato sotto licenza MIT.");
-        if ui.button("Indietro").clicked() {
+        ui.heading("License");
+        ui.label("Software released under the MIT license.");
+        if ui.button("Back").clicked() {
             self.main_menu = Menu::Info;
         }
     }
 
     fn show_contrib(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Contributori");
-        ui.label("Progetto open-source, contributi benvenuti!");
-        if ui.button("Indietro").clicked() {
+        ui.heading("Contributors");
+        ui.label("Open-source project, contributions welcome!");
+        if ui.button("Back").clicked() {
             self.main_menu = Menu::Info;
         }
     }
 }
 
-// Implementazione dell'applicazione eGUI
+// eGUI application implementation
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             match self.main_menu {
                 Menu::Main => self.show_main_menu(ui),
+                Menu::FullScreen => self.show_full_screen(ui),
                 Menu::ScreenSelector => self.show_screen_selector(ui),
                 Menu::Info => self.show_info(ui),
                 Menu::License => self.show_license(ui),
                 Menu::Contrib => self.show_contrib(ui),
                 Menu::Exit => {
-		    process::exit(0x0000);
-		},
+                    process::exit(0x0000);
+                },
             }
         });
     }
@@ -181,7 +208,7 @@ impl eframe::App for App {
 fn main() -> Result<(), eframe::Error> {
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
-        "Stalker Capture",
+        "Sabbishot Capture Tool",
         native_options,
         Box::new(|_cc| Box::new(App::new())),
     )
